@@ -55,12 +55,12 @@ int main(int argc, char const* argv[]) {
     std::cerr << "Error: Open camera failed" << std::endl;
     return 1;
   }
-  std::cout << "Open device success" << std::endl << std::endl;
+  // std::cout << "Open device success" << std::endl << std::endl;
 
-  std::cout << "Press ESC/Q on Windows to terminate" << std::endl;
+  // std::cout << "Press ESC/Q on Windows to terminate" << std::endl;
 
   Rate rate(params.framerate);
-  util::Counter counter(params.framerate);
+  util::Counter counter;
   for (;;) {
     counter.Update();
 

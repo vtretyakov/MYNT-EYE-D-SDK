@@ -19,7 +19,6 @@
 #include <utility>
 
 #include "mynteyed/data/channels.h"
-#include "mynteyed/device/colorizer_p.h"
 #include "mynteyed/device/device.h"
 #include "mynteyed/internal/image_utils.h"
 #include "mynteyed/internal/motions.h"
@@ -91,15 +90,6 @@ ErrorCode CameraPrivate::Open(const OpenParams& params) {
     return ErrorCode::ERROR_FAILURE;
   }
 
-  auto info = device_->GetDeviceInfo();
-  if (descriptors_->serial_number == info->sn) {
-    DBG_LOGD("%smatched\n", descriptors_->serial_number);
-  } else {
-    DBG_LOGD("imu channal sn: %s dosen't match the device sn: %s\n",
-        descriptors_->serial_number.c_str(),
-        info->sn.c_str());
-  }
-
   if (ok) {
     NotifyDataTrackStateChanged();
     // Enable streams according to device mode
@@ -124,7 +114,7 @@ ErrorCode CameraPrivate::Open(const OpenParams& params) {
     streams_->OnCameraOpen();
 #ifdef MYNTEYE_OS_LINUX
     // control whether reconnect
-    if (enable_reconnect_ && !watch_thread_.joinable()) {
+    if (enable_reconnect_) {
       WatchDog();
     }
 #endif
@@ -287,8 +277,7 @@ void CameraPrivate::EnableProcessMode(const ProcessMode& mode) {
 }
 
 void CameraPrivate::EnableProcessMode(const std::int32_t& mode) {
-  if (Version(1, 6) > descriptors_->firmware_version)
-    motions_->EnableProcessMode(mode);
+  motions_->EnableProcessMode(mode);
 }
 
 bool CameraPrivate::IsImageInfoSupported() const {
@@ -432,17 +421,17 @@ void CameraPrivate::ReadDeviceFlash() {
     return;
   }
 
-  LOGI("\nDevice descriptors:");
-  LOGI("  name: %s", descriptors_->name.c_str());
-  LOGI("  serial_number: %s", descriptors_->serial_number.c_str());
-  LOGI("  firmware_version: %s",
-      descriptors_->firmware_version.to_string().c_str());
-  LOGI("  hardware_version: %s",
-      descriptors_->hardware_version.to_string().c_str());
-  LOGI("  spec_version: %s", descriptors_->spec_version.to_string().c_str());
-  LOGI("  lens_type: %s", descriptors_->lens_type.to_string().c_str());
-  LOGI("  imu_type: %s", descriptors_->imu_type.to_string().c_str());
-  LOGI("  nominal_baseline: %u", descriptors_->nominal_baseline);
+  // LOGI("\nDevice descriptors:");
+  // LOGI("  name: %s", descriptors_->name.c_str());
+  // LOGI("  serial_number: %s", descriptors_->serial_number.c_str());
+  // LOGI("  firmware_version: %s",
+  //     descriptors_->firmware_version.to_string().c_str());
+  // LOGI("  hardware_version: %s",
+  //     descriptors_->hardware_version.to_string().c_str());
+  // LOGI("  spec_version: %s", descriptors_->spec_version.to_string().c_str());
+  // LOGI("  lens_type: %s", descriptors_->lens_type.to_string().c_str());
+  // LOGI("  imu_type: %s", descriptors_->imu_type.to_string().c_str());
+  // LOGI("  nominal_baseline: %u", descriptors_->nominal_baseline);
 
   if (imu_params.ok) {
     SetMotionIntrinsics({imu_params.in_accel, imu_params.in_gyro});
@@ -509,8 +498,7 @@ bool CameraPrivate::StartDataTracking() {
   if (channels_->IsHidTracking()) return true;
 
   // Start hid tracking will callback imu data & image info
-  std::cout << "FW:" << descriptors_->firmware_version.to_string() <<std::endl;
-  return channels_->StartHidTracking(descriptors_.get());
+  return channels_->StartHidTracking();
 }
 
 void CameraPrivate::StopDataTracking() {
@@ -558,10 +546,6 @@ bool CameraPrivate::AutoExposureControl(bool enable) {
 
 bool CameraPrivate::AutoWhiteBalanceControl(bool enable) {
   return device_->SetAutoWhiteBalanceEnabled(enable);
-}
-
-float CameraPrivate::GetSensorTemperature() {
-  return device_->GetSensorTemperature();
 }
 
 void CameraPrivate::EnableLocationDatas(std::size_t max_size) {
@@ -654,7 +638,7 @@ void CameraPrivate::Reconnect() {
     reconnect_times_ = 0;
 }
 
-void CameraPrivate::WaitForStreams() {
+void CameraPrivate::WaitForStream() {
 #ifdef MYNTEYE_OS_WIN
   if (!streams_->WaitForStreamData() && enable_reconnect_) {
     // control whether connect
@@ -666,27 +650,14 @@ void CameraPrivate::WaitForStreams() {
 #endif
 }
 
-std::shared_ptr<Colorizer> CameraPrivate::GetColorizer() const {
-  return device_->GetColorizer();
-}
-
 bool CameraPrivate::AuxiliaryChipFirmwareUpdate(const char* filepath) {
   return channels_->HidFirmwareUpdate(filepath);
-}
-
-bool CameraPrivate::WriteCameraCalibration(
-    const struct CameraCalibration &data, const StreamMode& stream_mode) {
-  return device_->SetCameraCalibrationWithStruct(data, stream_mode);
 }
 
 void CameraPrivate::WatchDog() {
   watch_thread_ = std::thread([this](){
     Rate rate(100);
     while (true) {
-     if (device_ == nullptr) {
-      //  std::cout << "dog exit\n";
-       break;
-     }
      if (!device_->UpdateDeviceStatus()) {
        Reconnect();
      }

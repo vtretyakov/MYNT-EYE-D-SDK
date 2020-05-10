@@ -1,16 +1,3 @@
-# Copyright 2018 Slightech Co., Ltd. All rights reserved.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
 cmake_minimum_required(VERSION 3.0)
 
 project(mynteye_samples VERSION 1.3.6 LANGUAGES C CXX)
@@ -92,12 +79,6 @@ make_executable(get_image
     src/util/cv_painter.cc
   LINK_LIBS mynteye_depth ${OpenCV_LIBS}
   DLL_SEARCH_PATHS ${MYNTEYE_DLL_SEARCH_PATHS}
-)
-
-make_executable(get_device_info 
-    SRCS src/get_device_info.cc
-    LINK_LIBS mynteye_depth
-    DLL_SEARCH_PATHS ${MYNTEYE_DLL_SEARCH_PATHS}
 )
 
 make_executable(get_stereo_image
@@ -231,27 +212,3 @@ if(PCL_FOUND)
     DLL_SEARCH_PATHS ${MYNTEYE_DLL_SEARCH_PATHS}
   )
 endif()
-
-# targets
-
-set(OUT_DIR "${CMAKE_CURRENT_SOURCE_DIR}/_output")
-
-include_directories(
-  ${OpenCV_INCLUDE_DIRS}
-  ${CMAKE_CURRENT_LIST_DIR}
-)
-
-set(MYNTEYE_DLL_SEARCH_PATHS
-  ${PRO_DIR}/_install/bin
-  ${PRO_DIR}/_install/bin/3rdparty
-  ${OpenCV_LIB_SEARCH_PATH}
-)
-
-
-# record
-
-add_subdirectory(dataset)
-
-# writer
-
-add_subdirectory(writer)

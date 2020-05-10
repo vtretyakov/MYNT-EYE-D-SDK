@@ -61,25 +61,10 @@ struct MYNTEYE_API ImgInfo {
     exposure_time = other.exposure_time;
     return *this;
   }
-  bool operator >(const ImgInfo &other) {
-    if (frame_id > other.frame_id || timestamp >  other.timestamp) {
-      return true;
-    } else {
-      return false;
-    }
-  }
-  friend std::ostream &operator <<(std::ostream &os,
-      const ImgInfo &m) {
-    os << "frame_id: " << m.frame_id
-       << "  timestamp:" << m.timestamp
-       << std::endl;
-    return os;
-  }
 };
 
 #define MYNTEYE_IMU_ACCEL 1
 #define MYNTEYE_IMU_GYRO 2
-#define MYNTEYE_IMU_ACCEL_GYRO_CALIB 11
 
 /**
  * @ingroup datatypes
@@ -90,7 +75,6 @@ struct MYNTEYE_API ImuData {
    * Data type
    *   MYNTEYE_IMU_ACCEL: accelerometer
    *   MYNTEYE_IMU_GYRO: gyroscope
-   *   MYNTEYE_IMU_ACCEL_GYRO_CALIB: calib accelerometer and gyroscope
    * */
   std::uint8_t flag;
 
@@ -98,13 +82,13 @@ struct MYNTEYE_API ImuData {
   std::uint64_t timestamp;
 
   /** temperature */
-  float temperature;
+  double temperature;
 
   /** Imu accelerometer data for 3-axis: X, Y, X. */
-  float accel[3];
+  double accel[3];
 
   /** Imu gyroscope data for 3-axis: X, Y, Z. */
-  float gyro[3];
+  double gyro[3];
 
   void Reset() {
     flag = 0;

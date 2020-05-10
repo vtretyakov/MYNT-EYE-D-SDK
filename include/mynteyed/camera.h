@@ -22,28 +22,24 @@
 #include <vector>
 #include <string>
 
-#include "mynteyed/device/colorizer.h"
 #include "mynteyed/device/device_info.h"
 #include "mynteyed/device/image.h"
 #include "mynteyed/device/open_params.h"
 #include "mynteyed/device/stream_info.h"
-#include "mynteyed/device/types.h"
 #include "mynteyed/types.h"
 
 MYNTEYE_BEGIN_NAMESPACE
 
 class CameraPrivate;
-using StreamRequest = OpenParams;
-using Stream = ImageType;
 
 class MYNTEYE_API Camera {
  public:
   using img_info_callback_t =
-      std::function<void(const std::shared_ptr<ImgInfo> &info)>;
-  using stream_callback_t = std::function<void(const StreamData &data)>;
-  using motion_callback_t = std::function<void(const MotionData &data)>;
-  using location_callback_t = std::function<void(const LocationData &data)>;
-  using distance_callback_t = std::function<void(const DistanceData &data)>;
+        std::function<void(const std::shared_ptr<ImgInfo>& info)>;
+  using stream_callback_t = std::function<void(const StreamData& data)>;
+  using motion_callback_t = std::function<void(const MotionData& data)>;
+  using location_callback_t = std::function<void(const LocationData& data)>;
+  using distance_callback_t = std::function<void(const DistanceData& data)>;
 
   Camera();
   ~Camera();
@@ -51,17 +47,17 @@ class MYNTEYE_API Camera {
   /** Get all device infos */
   std::vector<DeviceInfo> GetDeviceInfos() const;
   /** Get all device infos */
-  void GetDeviceInfos(std::vector<DeviceInfo> *dev_infos) const;
+  void GetDeviceInfos(std::vector<DeviceInfo>* dev_infos) const;
 
   /** Get all stream infos */
-  void GetStreamInfos(const std::int32_t &dev_index,
-                      std::vector<StreamInfo> *color_infos,
-                      std::vector<StreamInfo> *depth_infos) const;
+  void GetStreamInfos(const std::int32_t& dev_index,
+      std::vector<StreamInfo>* color_infos,
+      std::vector<StreamInfo>* depth_infos) const;
 
   /** Open camera */
   ErrorCode Open();
   /** Open camera with params */
-  ErrorCode Open(const OpenParams &params);
+  ErrorCode Open(const OpenParams& params);
 
   /** Whethor camera is opened or not */
   bool IsOpened() const;
@@ -74,35 +70,24 @@ class MYNTEYE_API Camera {
   std::string GetDescriptor(const Descriptor &desc) const;
 
   /** Get the intrinsics of camera */
-  StreamIntrinsics GetStreamIntrinsics(const StreamMode &stream_mode) const {
+  StreamIntrinsics GetStreamIntrinsics(const StreamMode& stream_mode) const {
     bool ok = true;
     return GetStreamIntrinsics(stream_mode, &ok);
   }
   /** Get the intrinsics of camera */
-  StreamIntrinsics GetStreamIntrinsics(const StreamMode &stream_mode,
-                                       bool *ok) const;
+  StreamIntrinsics GetStreamIntrinsics(const StreamMode& stream_mode,
+      bool* ok) const;
   /** Get the extrinsics of camera */
-  StreamExtrinsics GetStreamExtrinsics(const StreamMode &stream_mode) const {
+  StreamExtrinsics GetStreamExtrinsics(const StreamMode& stream_mode) const {
     bool ok = true;
     return GetStreamExtrinsics(stream_mode, &ok);
   }
-  /** Get the extriframensics of camera */
-  StreamExtrinsics GetStreamExtrinsics(const StreamMode &stream_mode,
-                                       bool *ok) const;
+  /** Get the extrinsics of camera */
+  StreamExtrinsics GetStreamExtrinsics(const StreamMode& stream_mode,
+      bool* ok) const;
 
   /** Write camera calibration bin file */
-  bool WriteCameraCalibrationBinFile(const std::string &filename);
-
-  /** Write camera calibration struct */
-  bool WriteCameraCalibration(
-      const struct CameraCalibration &data, const StreamMode& stream_mode);
-
-  /** Write camera calibration bin file */
-  bool WriteCameraCalibration(const struct CameraCalibration &data);
-
-  /** Get camera calibration calib struct */
-  std::shared_ptr<CameraCalibration> GetCameraCalibration(
-    const StreamMode& stream_mode);
+  bool WriteCameraCalibrationBinFile(const std::string& filename);
 
   /** Get the intrinsics of motion */
   MotionIntrinsics GetMotionIntrinsics() const {
@@ -110,14 +95,14 @@ class MYNTEYE_API Camera {
     return GetMotionIntrinsics(&ok);
   }
   /** Get the intrinsics of motion */
-  MotionIntrinsics GetMotionIntrinsics(bool *ok) const;
+  MotionIntrinsics GetMotionIntrinsics(bool* ok) const;
   /** Get the extrinsics from left to motion */
   MotionExtrinsics GetMotionExtrinsics() const {
     bool ok = true;
     return GetMotionExtrinsics(&ok);
   }
   /** Get the extrinsics from left to motion */
-  MotionExtrinsics GetMotionExtrinsics(bool *ok) const;
+  MotionExtrinsics GetMotionExtrinsics(bool* ok) const;
 
   /** Whethor write device supported or not */
   bool IsWriteDeviceSupported() const;
@@ -128,9 +113,9 @@ class MYNTEYE_API Camera {
       Version *spec_version = nullptr);
 
   /** Enable process mode, e.g. imu assembly, temp_drift */
-  void EnableProcessMode(const ProcessMode &mode);
+  void EnableProcessMode(const ProcessMode& mode);
   /** Enable process mode, e.g. imu assembly, temp_drift */
-  void EnableProcessMode(const std::int32_t &mode);
+  void EnableProcessMode(const std::int32_t& mode);
 
   /** Whethor image info supported or not */
   bool IsImageInfoSupported() const;
@@ -141,22 +126,22 @@ class MYNTEYE_API Camera {
    * If sync is true, indicates can get infos from callback or access it from StreamData.
    */
   void EnableImageInfo(bool sync);
-  /** Disable imageframe info. */
+  /** Disable image info. */
   void DisableImageInfo();
-  /** Whethor imageframe info enabled or not */
+  /** Whethor image info enabled or not */
   bool IsImageInfoEnabled() const;
-  /** Whethor imageframe info synced or not */
+  /** Whethor image info synced or not */
   bool IsImageInfoSynced() const;
 
   /** Whethor stream data of certain image type enabled or not */
-  bool IsStreamDataEnabled(const ImageType &type) const;
+  bool IsStreamDataEnabled(const ImageType& type) const;
   /** Has any stream data enabled */
   bool HasStreamDataEnabled() const;
 
   /** Get latest stream data */
-  StreamData GetStreamData(const ImageType &type);
+  StreamData GetStreamData(const ImageType& type);
   /** Get cached stream datas */
-  std::vector<StreamData> GetStreamDatas(const ImageType &type);
+  std::vector<StreamData> GetStreamDatas(const ImageType& type);
 
   /** Whethor motion datas supported or not */
   bool IsMotionDatasSupported() const;
@@ -182,8 +167,8 @@ class MYNTEYE_API Camera {
   void SetImgInfoCallback(img_info_callback_t callback, bool async = true);
 
   /** Set stream data callback. */
-  void SetStreamCallback(const ImageType &type, stream_callback_t callback,
-                         bool async = true);
+  void SetStreamCallback(const ImageType& type, stream_callback_t callback,
+        bool async = true);
 
   /** Set motion data callback. */
   void SetMotionCallback(motion_callback_t callback, bool async = true);
@@ -218,14 +203,11 @@ class MYNTEYE_API Camera {
   /** Auto-white-balance enabled or not  default enabled*/
   bool AutoWhiteBalanceControl(bool enable);
 
-  /** Get sensor temperature */
-  float GetSensorTemperature();
-
 #ifdef MYNTEYE_DEPRECATED_COMPAT
   /** @deprecated Replaced by OpenParams#device_mode */
-  void EnableStreamData(const ImageType &type);
+  void EnableStreamData(const ImageType& type);
   /** @deprecated Replaced by OpenParams#device_mode */
-  void DisableStreamData(const ImageType &type);
+  void DisableStreamData(const ImageType& type);
 #endif
 
   /** Whethor location datas supported or not */
@@ -238,8 +220,7 @@ class MYNTEYE_API Camera {
    *
    * Note: if max_size > 0, the distance datas will be cached until you call GetLocationDatas().
   */
-  void EnableLocationDatas(std::size_t max_size =
-      std::numeric_limits<std::size_t>::max());
+  void EnableLocationDatas(std::size_t max_size = std::numeric_limits<std::size_t>::max());
   /** Disable location datas. */
   void DisableLocationDatas();
   /** Whethor location datas enabled or not */
@@ -261,8 +242,7 @@ class MYNTEYE_API Camera {
    *
    * Note: if max_size > 0, the distance datas will be cached until you call GetDistanceDatas().
    */
-  void EnableDistanceDatas(std::size_t max_size =
-      std::numeric_limits<std::size_t>::max());
+  void EnableDistanceDatas(std::size_t max_size = std::numeric_limits<std::size_t>::max());
   /** Disable distance datas. */
   void DisableDistanceDatas();
   /** Whethor distance datas enabled or not */
@@ -274,21 +254,14 @@ class MYNTEYE_API Camera {
   /** Set distance data callback. */
   void SetDistanceCallback(distance_callback_t callback, bool async = true);
 
-  void WaitForStreams();
-  
-#ifdef MYNTEYE_DEPRECATED_COMPAT
   void WaitForStream();
-#endif
-
-  /** Get colorizer for depth */
-  std::shared_ptr<Colorizer> GetColorizer() const;
 
   /** Update auxiliary chip firmware. */
-  bool AuxiliaryChipFirmwareUpdate(const char *filepath);
+  bool AuxiliaryChipFirmwareUpdate(const char* filepath);
 
 #ifdef MYNTEYE_DEPRECATED_COMPAT
   /** @deprecated Replaced by OpenParams#device_mode */
-  bool HidFirmwareUpdate(const char *filepath);
+  bool HidFirmwareUpdate(const char* filepath);
 #endif
 
   /**
@@ -297,27 +270,9 @@ class MYNTEYE_API Camera {
    * */
   void ControlReconnectStatus(const bool &status);
 
-  StreamRequest SelectStreamRequest(bool *ok) const;
-
-  void ConfigStreamRequest(const StreamRequest &request) {
-    Open(request);
-  }
-  /**
-   * Supports the stream or not.
-   **/
-  bool Supports(const Stream &stream) const {
-    return IsStreamDataEnabled(stream);
-  }
-
-  static std::shared_ptr<Camera> Create() {
-    return std::make_shared<Camera>();
-  }
-
  private:
   std::unique_ptr<CameraPrivate> p_;
 };
-
-using API = Camera;
 
 MYNTEYE_END_NAMESPACE
 

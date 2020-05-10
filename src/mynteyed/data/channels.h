@@ -65,8 +65,6 @@ class MYNTEYE_API Channels {
     FRAME,
     DISTANCE,
     LOCATION,
-    TEMPERATURE,
-    ACCEL_AND_GYRO = 10
   } data_id_t;
 
   using device_desc_t = device::Descriptors;
@@ -97,7 +95,7 @@ class MYNTEYE_API Channels {
   bool IsHidOpened() const;
   bool IsHidTracking() const;
 
-  bool StartHidTracking(device_desc_t *desc);
+  bool StartHidTracking();
   bool StopHidTracking();
 
   bool GetFiles(device_desc_t *desc,
@@ -115,10 +113,6 @@ class MYNTEYE_API Channels {
   bool OpenHid();
   void CloseHid();
 
-  inline void EnableImuCorrespondence(bool is_enable) {
-    enable_imu_correspondence = is_enable;
-  }
-
  protected:
   void Detect();
   bool Open();
@@ -127,10 +121,9 @@ class MYNTEYE_API Channels {
   void DetectHid();
 
  private:
-  bool DoHidTrack(device_desc_t *desc);
-  bool DoHidTrack2(device_desc_t *desc);
-  bool DoHidDataExtract(device_desc_t *desc, imu_packets_t &imu, img_packets_t &img, gps_packets_t &gps, dis_packets_t &dis);  // NOLINT
-  bool DoHidDataExtract2(device_desc_t *desc, imu_packets_t &imu, img_packets_t &img, gps_packets_t &gps, dis_packets_t &dis);  // NOLINT
+  bool DoHidTrack();
+  bool DoHidDataExtract(imu_packets_t &imu, img_packets_t &img,
+      gps_packets_t &gps, dis_packets_t &dis);  // NOLINT
 
   bool PullFileData(bool device_info,
       bool reserve,
@@ -144,7 +137,6 @@ class MYNTEYE_API Channels {
   bool is_hid_exist_ = false;
   bool is_hid_opened_ = false;
   bool is_hid_tracking_ = false;
-  bool enable_imu_correspondence = false;
 
   img_callback_t img_callback_;
   imu_callback_t imu_callback_;

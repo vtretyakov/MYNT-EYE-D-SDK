@@ -55,6 +55,12 @@ int main(int argc, char const* argv[]) {
       .metavar("MODE").help("Color mode, default %default (COLOR_RAW)"
           "\n  0: COLOR_RAW, color raw"
           "\n  1: COLOR_RECTIFIED, color rectified");
+  op_group.add_option("--dm").dest("depth_mode")
+      .type("int").set_default(2)
+      .metavar("MODE").help("Depth mode, default %default (DEPTH_COLORFUL)"
+          "\n  0: DEPTH_RAW"
+          "\n  1: DEPTH_GRAY"
+          "\n  2: DEPTH_COLORFUL");
   op_group.add_option("--sm").dest("stream_mode")
       .type("int").set_default(2)
       .metavar("MODE").help("Stream mode of color & depth, "
@@ -119,7 +125,7 @@ int main(int argc, char const* argv[]) {
 
   Camera cam;
   OpenParams params;
-  util::Counter counter(static_cast<int>(options.get("framerate")));
+  util::Counter counter;
 
   DeviceInfo dev_info;
   {
@@ -192,6 +198,8 @@ int main(int argc, char const* argv[]) {
     params.dev_mode = static_cast<DeviceMode>(val);
     if (!in_range("color_mode", 0, 1, &val)) return 2;
     params.color_mode = static_cast<ColorMode>(val);
+    if (!in_range("depth_mode", 0, 2, &val)) return 2;
+    params.depth_mode = static_cast<DepthMode>(val);
     if (!in_range("stream_mode", 0, 3, &val)) return 2;
     params.stream_mode = static_cast<StreamMode>(val);
     if (!in_range("color_stream_format", 0, 1, &val)) return 2;
@@ -298,13 +306,11 @@ int main(int argc, char const* argv[]) {
   CVPainter painter;
   for (;;) {
     cam.WaitForStream();
-    auto allow_count = false;
+    counter.Update();
 
     if (is_left_ok) {
       auto left_color = cam.GetStreamData(ImageType::IMAGE_LEFT_COLOR);
       if (left_color.img) {
-        allow_count = true;
-
         cv::Mat mat = left_color.img->To(ImageFormat::COLOR_BGR)->ToMat();
         painter.DrawSize(mat, CVPainter::TOP_LEFT);
         painter.DrawStreamData(mat, left_color, CVPainter::TOP_RIGHT);
@@ -317,7 +323,6 @@ int main(int argc, char const* argv[]) {
     if (is_right_ok) {
       auto right_color = cam.GetStreamData(ImageType::IMAGE_RIGHT_COLOR);
       if (right_color.img) {
-        allow_count = true;
         cv::Mat mat = right_color.img->To(ImageFormat::COLOR_BGR)->ToMat();
         painter.DrawSize(mat, CVPainter::TOP_LEFT);
         painter.DrawStreamData(mat, right_color, CVPainter::TOP_RIGHT);
@@ -328,16 +333,16 @@ int main(int argc, char const* argv[]) {
     if (is_depth_ok) {
       auto image_depth = cam.GetStreamData(ImageType::IMAGE_DEPTH);
       if (image_depth.img) {
-        allow_count = true;
         cv::Mat depth;
-        depth = image_depth.img->ToMat();
+        if (params.depth_mode == DepthMode::DEPTH_COLORFUL) {
+          depth = image_depth.img->To(ImageFormat::DEPTH_BGR)->ToMat();
+        } else {
+          depth = image_depth.img->ToMat();
+        }
         painter.DrawSize(depth, CVPainter::TOP_LEFT);
         painter.DrawStreamData(depth, image_depth, CVPainter::TOP_RIGHT);
         cv::imshow("depth", depth);
       }
-    }
-    if (allow_count == true) {
-      counter.Update();
     }
 
     char key = static_cast<char>(cv::waitKey(1));
@@ -351,7 +356,7 @@ int main(int argc, char const* argv[]) {
   }
 
   cam.Close();
-
+  cv::destroyAllWindows();
 
   counter.PrintCountInfo();
   return 0;

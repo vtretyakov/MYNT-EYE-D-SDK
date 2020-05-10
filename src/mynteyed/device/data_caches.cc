@@ -56,14 +56,14 @@ DataCaches::data_ptr_t DataCaches::GetProper(const size_t& size) {
     throw_error("The size is larger then all proper sizes, unaccepted");
   }
 #ifdef CACHES_INFO_PRINT
-  LOGI("GetProper size: %d, proper_size: %d", size, *it);
+  // LOGI("GetProper size: %d, proper_size: %d", size, *it);
 #endif
   return Get(*it);
 }
 
 DataCaches::data_ptr_t DataCaches::Create(const size_t& size) {
 #ifdef CACHES_INFO_PRINT
-  LOGI("Create data: %d", size);
+  // LOGI("Create data: %d", size);
 #endif
   return std::make_shared<data_t>(size);
 }
@@ -76,7 +76,7 @@ DataCaches::data_ptr_t DataCaches::Get(const size_t& size) {
         continue;
       }
 #ifdef CACHES_INFO_PRINT
-      LOGI("Get cache: %d", size);
+      // LOGI("Get cache: %d", size);
 #endif
       return data;
     }

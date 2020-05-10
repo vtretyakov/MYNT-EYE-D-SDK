@@ -34,11 +34,13 @@ int main(int argc, char const* argv[]) {
   }
   util::print_stream_infos(cam, dev_info.index);
 
-  std::cout << "Open device: " << dev_info.index << ", "
-      << dev_info.name << std::endl << std::endl;
+  // std::cout << "Open device: " << dev_info.index << ", "
+      // << dev_info.name << std::endl << std::endl;
 
   OpenParams params(dev_info.index);
   params.color_mode = ColorMode::COLOR_RECTIFIED;
+  // Note: must set DEPTH_RAW to get raw depth values for points
+  params.depth_mode = DepthMode::DEPTH_RAW;
   params.stream_mode = StreamMode::STREAM_1280x720;
   params.ir_intensity = 4;
 
@@ -49,7 +51,7 @@ int main(int argc, char const* argv[]) {
     std::cerr << "Error: Open camera failed" << std::endl;
     return 1;
   }
-  std::cout << "Open device success" << std::endl;
+  // std::cout << "Open device success" << std::endl;
   auto spat_sptr = std::make_shared<SpatialFilter>();
   auto temp_sptr = std::make_shared<TemporalFilter>();
   std::vector<std::shared_ptr<BaseFilter>> vec;
