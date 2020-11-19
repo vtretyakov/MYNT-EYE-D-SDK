@@ -58,7 +58,7 @@ int main(int argc, char const* argv[]) {
   std::cout << "Press ESC/Q on Windows to terminate" << std::endl;
 
   Rate rate(params.framerate);
-  util::Counter counter(params.framerate);
+  util::Counter counter;
   for (;;) {
     counter.Update();
 
@@ -77,21 +77,6 @@ int main(int argc, char const* argv[]) {
               << std::endl;
           } else if (data.imu->flag == MYNTEYE_IMU_GYRO) {
             counter.IncrGyroCount();
-            std::cout << "[gyro] stamp: " << data.imu->timestamp
-              << ", x: " << data.imu->gyro[0]
-              << ", y: " << data.imu->gyro[1]
-              << ", z: " << data.imu->gyro[2]
-              << ", temp: " << data.imu->temperature
-              << std::endl;
-          } else if (data.imu->flag == MYNTEYE_IMU_ACCEL_GYRO_CALIB) {
-            counter.IncrAccelCount();
-            counter.IncrGyroCount();
-            std::cout << "[accel] stamp: " << data.imu->timestamp
-              << ", x: " << data.imu->accel[0]
-              << ", y: " << data.imu->accel[1]
-              << ", z: " << data.imu->accel[2]
-              << ", temp: " << data.imu->temperature
-              << std::endl;
             std::cout << "[gyro] stamp: " << data.imu->timestamp
               << ", x: " << data.imu->gyro[0]
               << ", y: " << data.imu->gyro[1]

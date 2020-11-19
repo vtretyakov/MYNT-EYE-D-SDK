@@ -50,7 +50,7 @@ void CheckSpecVersion(const Version *spec_version) {
     return;
   }
 
-  std::vector<std::string> spec_versions{"1.0", "1.1"};
+  std::vector<std::string> spec_versions{"1.0"};
   for (auto &&spec_ver : spec_versions) {
     if (*spec_version == Version(spec_ver)) {
       return;  // supported
@@ -71,8 +71,7 @@ void CheckSpecVersion(const Version *spec_version) {
 Channels::Channels() : img_callback_(nullptr),
   imu_callback_(nullptr),
   gps_callback_(nullptr),
-  dis_callback_(nullptr),
-  enable_imu_correspondence(false) {
+  dis_callback_(nullptr) {
   hid_ = std::make_shared<hid::hid_device>();
   Detect();
   Open();
@@ -121,21 +120,20 @@ bool Channels::IsHidTracking() const {
   return is_hid_tracking_;
 }
 
-bool Channels::StartHidTracking(device_desc_t *desc) {
+bool Channels::StartHidTracking() {
   if (!is_hid_opened_) {
     LOGW("WARNING:: hid device was not opened.");
     return false;
   }
   if (is_hid_tracking_) {
-    LOGI("INFO:: hid device was tracking already.");
+    // LOGI("INFO:: hid device was tracking already.");
     return true;
   }
+
   is_hid_tracking_ = true;
-  hid_track_thread_ = std::thread([desc, this]() {
+  hid_track_thread_ = std::thread([this]() {
     while (is_hid_tracking_) {
-      if (desc != nullptr) {
-        DoHidTrack(desc);
-      }
+      DoHidTrack();
     }
   });
 
@@ -151,7 +149,7 @@ bool Channels::StopHidTracking() {
     return false;
   }
   if (!is_hid_tracking_) {
-    LOGI("INFO:: hid device was not tracking already.");
+    // LOGI("INFO:: hid device was not tracking already.");
     return true;
   }
 
@@ -204,7 +202,7 @@ void Channels::CloseHid() {
   is_hid_opened_ = false;
 }
 
-bool Channels::DoHidTrack(device_desc_t *desc) {
+bool Channels::DoHidTrack() {
   static imu_packets_t imu_packets;
   static img_packets_t img_packets;
   static gps_packets_t gps_packets;
@@ -213,7 +211,8 @@ bool Channels::DoHidTrack(device_desc_t *desc) {
   img_packets.clear();
   gps_packets.clear();
   dis_packets.clear();
-  if (!DoHidDataExtract(desc, imu_packets, img_packets,
+
+  if (!DoHidDataExtract(imu_packets, img_packets,
         gps_packets, dis_packets)) {
     return false;
   }
@@ -247,30 +246,18 @@ void print_imu_data(const ImuDataPacket& imu_data) {
   std::cout << std::dec;
   if (imu_data.flag == MYNTEYE_IMU_ACCEL) {
     std::cout << "    [accel] stamp: " << imu_data.timestamp
-      << ", x: " << imu_data.accel[0]
-      << ", y: " << imu_data.accel[1]
-      << ", z: " << imu_data.accel[2]
-      << ", temp: " << imu_data.temperature
+      << ", x: " << imu_data.accel_or_gyro[0] * 12.f / 0x10000
+      << ", y: " << imu_data.accel_or_gyro[1] * 12.f / 0x10000
+      << ", z: " << imu_data.accel_or_gyro[2] * 12.f / 0x10000
+      << ", temp: " << imu_data.temperature * 0.125 + 23
       << std::endl;
   } else if (imu_data.flag == MYNTEYE_IMU_GYRO) {
     std::cout << "    [gyro] stamp: " << imu_data.timestamp
-      << ", x: " << imu_data.gyro[0]
-      << ", y: " << imu_data.gyro[1]
-      << ", z: " << imu_data.gyro[2]
-      << ", temp: " << imu_data.temperature
+      << ", x: " << imu_data.accel_or_gyro[0] * 2000.f / 0x10000
+      << ", y: " << imu_data.accel_or_gyro[1] * 2000.f / 0x10000
+      << ", z: " << imu_data.accel_or_gyro[2] * 2000.f / 0x10000
+      << ", temp: " << imu_data.temperature * 0.125 + 23
       << std::endl;
-  } else if (imu_data.flag == MYNTEYE_IMU_ACCEL_GYRO_CALIB) {
-    std::cout << "    imu stamp: " << imu_data.timestamp
-      << ",[accel] x: " << imu_data.accel[0]
-      << ", y: " << imu_data.accel[1]
-      << ", z: " << imu_data.accel[2]
-      << ",[gyro], x: " << imu_data.gyro[0]
-      << ", y: " << imu_data.gyro[1]
-      << ", z: " << imu_data.gyro[2]
-      << ", temp: " << imu_data.temperature
-      << std::endl;
-  } else {
-    std::cout << "unknown imu type" << std::endl;
   }
 }
 
@@ -320,7 +307,7 @@ void detect_img_info_stamp(const ImgInfoPacket& img_info) {
 }
 #endif
 
-bool Channels::DoHidDataExtract(device_desc_t *desc, imu_packets_t &imu, img_packets_t &img,
+bool Channels::DoHidDataExtract(imu_packets_t &imu, img_packets_t &img,
     gps_packets_t &gps, dis_packets_t &dis) {
   std::uint8_t data[PACKET_SIZE * 2]{};
   std::fill(data, data + PACKET_SIZE * 2, 0);
@@ -352,24 +339,18 @@ bool Channels::DoHidDataExtract(device_desc_t *desc, imu_packets_t &imu, img_pac
     std::cout << std::endl;
 #endif
 
-    for (int offset = 3; offset <= PACKET_SIZE - DATA_SIZE;) {
+    for (int offset = 3; offset <= PACKET_SIZE - DATA_SIZE;
+        offset += DATA_SIZE) {
 #ifdef PACKET_PRINT
       std::cout << "  data[" << static_cast<int>(*(packet + offset)) << "]: ";
       std::copy(packet + offset, packet + offset + DATA_SIZE,
           std::ostream_iterator<int>(std::cout << std::hex, " "));
       std::cout << std::endl;
 #endif
+
       std::uint8_t header = *(packet + offset);
-      std::uint8_t length = *(packet + offset + 1) + 2;
-      static float temperature = 0.f;
-      if (header == ACCEL || header == GYRO || header == ACCEL_AND_GYRO) {
-        ImuDataPacket imu_data;
-        if (desc != nullptr && (Version(1, 1) <= desc->spec_version)) {
-          imu_data = ImuDataPacket(true, packet + offset);
-          imu_data.temperature = temperature;
-        } else {
-          imu_data = ImuDataPacket(false, packet + offset);
-        }
+      if (header == ACCEL || header == GYRO) {
+        auto&& imu_data = ImuDataPacket(packet + offset);
         imu.push_back(imu_data);
 #ifdef PACKET_PRINT
         print_imu_data(imu_data);
@@ -392,14 +373,11 @@ bool Channels::DoHidDataExtract(device_desc_t *desc, imu_packets_t &imu, img_pac
       } else if (header == LOCATION) {
         auto&& gps_data = GPSDataPacket(packet + offset);
         gps.push_back(gps_data);
-      } else if (header == TEMPERATURE) {
-        // Temperature update frequency is very low and changes slowly
-        auto&& temperature_data = TemperaturePacket(packet + offset);
-        temperature = temperature_data.temperature;
+        break;
       }
-      offset += length;
     }
   }
+
   return true;
 }
 
@@ -459,10 +437,6 @@ std::size_t from_data(Channels::device_desc_t *desc, const std::uint8_t *data) {
   // nominal_baseline, 2
   desc->nominal_baseline = _from_data<std::uint16_t>(data + i);
   i += 2;
-
-  if ((desc->spec_version >= Version(1, 1))) {
-    desc->serial_number = desc->serial_number.substr(0, 20);
-  }
 
   return i;
 }
@@ -613,7 +587,7 @@ bool Channels::PullFileData(bool device_desc,
     packets_num = buffer[0] | buffer[1] << 8;
 
     std::uint8_t length = buffer[2];
-    if (length == std::uint8_t(0)) { return false; }
+    if (length <= 0) { return false; }
 
     if (buffer[3 + length] != check_sum(&buffer[3], length)) {
       LOGE("%s %d:: Check error. please retry.",
@@ -689,9 +663,9 @@ bool Channels::GetFiles(device_desc_t *desc,
           }
         }
       } break;
-      default:
-        LOGI("%s %d:: Unsupported file id: %u",
-            __FILE__, __LINE__, file_id);
+      // default:
+        // LOGI("%s %d:: Unsupported file id: %u",
+            // __FILE__, __LINE__, file_id);
     }
     i += file_size;
   }
@@ -1037,18 +1011,18 @@ bool Channels::HidFirmwareUpdate(const char *filepath) {
   cmd[5] = (file_size_ & 0xFF000000) >> 24;
 
   if (hid_->get_device_class() == 0xFF) {
-    LOGI("\nUpdate will start......, "
-      "please don't pull out device!\n");
+    // LOGI("\nUpdate will start......, "
+      // "please don't pull out device!\n");
   } else {
     int ret = hid_->send(0, cmd, 64, 10);
     if (ret <= 0) {
-      LOGI("\nThis upgrade is not valid. Please re-upgrade.\n");
+      // LOGI("\nThis upgrade is not valid. Please re-upgrade.\n");
       return false;
     }
 
     hid_->droped();
     hid_->droped();
-    LOGI("\nPlease wait a moment, don't pull out device!\n");
+    // LOGI("\nPlease wait a moment, don't pull out device!\n");
 
     while (hid_->get_device_class() == -1) {
 #ifdef MYNTEYE_OS_LINUX
@@ -1057,21 +1031,21 @@ bool Channels::HidFirmwareUpdate(const char *filepath) {
       int ret = hid_->open(1, -1, -1);
       if (ret > 0) { break; }
       if (++req_count_ > 50) {
-        LOGI("\nThis upgrade is not valid. Please re-upgrade.\n");
+        // LOGI("\nThis upgrade is not valid. Please re-upgrade.\n");
         return false;
       }
     }
     if (hid_->get_device_class() == 0xFF) {
-      LOGI("\nUpdate will start......, "
-        "please don't pull out device!\n");
+      // LOGI("\nUpdate will start......, "
+        // "please don't pull out device!\n");
     } else {
-      LOGI("\nThis upgrade is not valid. Please re-upgrade.\n");
+      // LOGI("\nThis upgrade is not valid. Please re-upgrade.\n");
       return false;
     }
   }
 
   if (hid_->send(0, cmd, 64, 10) <= 0) {
-    LOGI("\nThis upgrade is not valid. Please re-upgrade.\n");
+    // LOGI("\nThis upgrade is not valid. Please re-upgrade.\n");
     return false;
   }
 
@@ -1079,32 +1053,32 @@ bool Channels::HidFirmwareUpdate(const char *filepath) {
   if (0x100 == hid_->get_version_number()) {
     cmd[0] = 0x00;
     if (hid_->send(0, cmd, 64, 20000) <= 0) {
-      LOGI("\nThis upgrade is not valid. Please re-upgrade.\n");
+      // LOGI("\nThis upgrade is not valid. Please re-upgrade.\n");
       return false;
     }
     cmd[0] = 0xAB;
   } else {
     if (hid_->receive(0, cmd, 64, 20000) <= 0) {
-      LOGI("\nThis upgrade is not valid. Please re-upgrade.\n");
+      // LOGI("\nThis upgrade is not valid. Please re-upgrade.\n");
       return false;
     }
   }
 #else
   if (hid_->receive(0, cmd, 64, 20000) <= 0) {
-    LOGI("\nThis upgrade is not valid. Please re-upgrade.\n");
+    // LOGI("\nThis upgrade is not valid. Please re-upgrade.\n");
     return false;
   }
 #endif
 
   if (0xAB != cmd[0]) {
-    LOGI("\nThis upgrade is not valid. Please re-upgrade.\n");
+    // LOGI("\nThis upgrade is not valid. Please re-upgrade.\n");
     return false;
   }
 
   while (true) {
     int current_len = read(fd, static_cast<std::uint8_t *>(cmd + 3), 60);
     if (-1 == current_len) {
-      LOGI("\nThis upgrade is not valid. Please re-upgrade.\n");
+      // LOGI("\nThis upgrade is not valid. Please re-upgrade.\n");
       return false;
     }
 
@@ -1115,7 +1089,7 @@ bool Channels::HidFirmwareUpdate(const char *filepath) {
         static_cast<std::uint8_t *>(cmd + 3), current_len);
 
     if (hid_->send(0, cmd, 64, 100) <= 0) {
-      LOGI("\nThis upgrade is not valid. Please re-upgrade.\n");
+      // LOGI("\nThis upgrade is not valid. Please re-upgrade.\n");
       return false;
     }
 
@@ -1135,13 +1109,13 @@ bool Channels::HidFirmwareUpdate(const char *filepath) {
 #endif
   OpenHid();
   if (hid_->get_device_class() == 0xFF) {
-    LOGI("\nThis upgrade is not valid. Please re-upgrade.\n");
+    // LOGI("\nThis upgrade is not valid. Please re-upgrade.\n");
     return false;
   } else {
-    LOGI("\nUpdate success.\n");
+    // LOGI("\nUpdate success.\n");
   }
 
-  LOGI("\nUpdate success.\n");
+  // LOGI("\nUpdate success.\n");
   return true;
 }
 

@@ -36,6 +36,8 @@ int main(int argc, char const* argv[]) {
 
   OpenParams params(dev_info.index);
   params.color_mode = ColorMode::COLOR_RECTIFIED;
+  // Note: must set DEPTH_RAW to get raw depth values for points
+  params.depth_mode = DepthMode::DEPTH_RAW;
   params.stream_mode = StreamMode::STREAM_1280x720;
   params.ir_intensity = 4;
 
@@ -46,7 +48,7 @@ int main(int argc, char const* argv[]) {
     std::cerr << "Error: Open camera failed" << std::endl;
     return 1;
   }
-  std::cout << "Open device success" << std::endl;
+  // std::cout << "Open device success" << std::endl;
 
   Rate rate(params.framerate);
   util::PCViewer viewer(1280, 720);

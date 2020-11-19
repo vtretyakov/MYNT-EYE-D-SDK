@@ -51,6 +51,9 @@ int main(int argc, char const* argv[]) {
     // Color mode: raw(default), rectified
     // params.color_mode = ColorMode::COLOR_RECTIFIED;
 
+    // Depth mode: colorful(default), gray, raw
+    // params.depth_mode = DepthMode::DEPTH_GRAY;
+
     // Stream mode: left color only
     // params.stream_mode = StreamMode::STREAM_640x480;  // vga
     // params.stream_mode = StreamMode::STREAM_1280x720;  // hd
@@ -89,7 +92,7 @@ int main(int argc, char const* argv[]) {
           << std::flush;
     });
 
-    std::vector<ImageType> types {
+    std::vector<ImageType> types{
       ImageType::IMAGE_LEFT_COLOR,
       ImageType::IMAGE_RIGHT_COLOR,
       ImageType::IMAGE_DEPTH,
@@ -121,19 +124,6 @@ int main(int argc, char const* argv[]) {
           << ", z: " << data.imu->gyro[2]
           << ", temp: " << data.imu->temperature
           << std::endl;
-      } else if (data.imu->flag == MYNTEYE_IMU_ACCEL_GYRO_CALIB) {
-        std::cout << "[accel] stamp: " << data.imu->timestamp
-          << ", x: " << data.imu->accel[0]
-          << ", y: " << data.imu->accel[1]
-          << ", z: " << data.imu->accel[2]
-          << ", temp: " << data.imu->temperature
-          << std::endl;
-        std::cout << "[gyro] stamp: " << data.imu->timestamp
-          << ", x: " << data.imu->gyro[0]
-          << ", y: " << data.imu->gyro[1]
-          << ", z: " << data.imu->gyro[2]
-          << ", temp: " << data.imu->temperature
-          << std::endl;
       }
       std::cout << std::flush;
     });
@@ -146,9 +136,9 @@ int main(int argc, char const* argv[]) {
     std::cerr << "Error: Open camera failed" << std::endl;
     return 1;
   }
-  std::cout << "Open device success" << std::endl << std::endl;
+  // std::cout << "Open device success" << std::endl << std::endl;
 
-  std::cout << "Press ESC/Q on Windows to terminate" << std::endl;
+  // std::cout << "Press ESC/Q on Windows to terminate" << std::endl;
 
   bool is_left_ok = cam.IsStreamDataEnabled(ImageType::IMAGE_LEFT_COLOR);
   bool is_right_ok = cam.IsStreamDataEnabled(ImageType::IMAGE_RIGHT_COLOR);
@@ -159,15 +149,14 @@ int main(int argc, char const* argv[]) {
   if (is_depth_ok) cv::namedWindow("depth");
 
   CVPainter painter;
-  util::Counter counter(params.framerate);
+  util::Counter counter;
   for (;;) {
     cam.WaitForStream();
-    auto allow_count = false;
+    counter.Update();
 
     if (is_left_ok) {
       auto left_color = cam.GetStreamData(ImageType::IMAGE_LEFT_COLOR);
       if (left_color.img) {
-        allow_count = true;
         cv::Mat left = left_color.img->To(ImageFormat::COLOR_BGR)->ToMat();
         painter.DrawSize(left, CVPainter::TOP_LEFT);
         painter.DrawStreamData(left, left_color, CVPainter::TOP_RIGHT);
@@ -180,7 +169,6 @@ int main(int argc, char const* argv[]) {
     if (is_right_ok) {
       auto right_color = cam.GetStreamData(ImageType::IMAGE_RIGHT_COLOR);
       if (right_color.img) {
-        allow_count = true;
         cv::Mat right = right_color.img->To(ImageFormat::COLOR_BGR)->ToMat();
         painter.DrawSize(right, CVPainter::TOP_LEFT);
         painter.DrawStreamData(right, right_color, CVPainter::TOP_RIGHT);
@@ -191,17 +179,16 @@ int main(int argc, char const* argv[]) {
     if (is_depth_ok) {
       auto image_depth = cam.GetStreamData(ImageType::IMAGE_DEPTH);
       if (image_depth.img) {
-        allow_count = true;
         cv::Mat depth;
-        depth = image_depth.img->ToMat();
+        if (params.depth_mode == DepthMode::DEPTH_COLORFUL) {
+          depth = image_depth.img->To(ImageFormat::DEPTH_BGR)->ToMat();
+        } else {
+          depth = image_depth.img->ToMat();
+        }
         painter.DrawSize(depth, CVPainter::TOP_LEFT);
         painter.DrawStreamData(depth, image_depth, CVPainter::TOP_RIGHT);
         cv::imshow("depth", depth);
       }
-    }
-
-    if (allow_count == true) {
-      counter.Update();
     }
 
     char key = static_cast<char>(cv::waitKey(1));
@@ -211,6 +198,6 @@ int main(int argc, char const* argv[]) {
   }
 
   cam.Close();
-
+  cv::destroyAllWindows();
   return 0;
 }

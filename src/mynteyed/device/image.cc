@@ -167,11 +167,12 @@ void Image::set_valid_size(std::size_t valid_size) {
   valid_size_ = valid_size;
 }
 
-#ifdef WITH_OPENCV
+
+//#ifdef WITH_OPENCV
 cv::Mat Image::ToMat() {
   return cv::Mat(height_, width_, get_mat_type(format_), data());
 }
-#endif
+//#endif
 
 Image::pointer Image::Clone() const {
   auto image = Create(type_, format_, width_, height_, false);

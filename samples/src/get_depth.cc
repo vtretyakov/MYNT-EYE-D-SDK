@@ -25,7 +25,7 @@
 #include "util/cv_painter.h"
 
 namespace {
-static cv::Mat cv_in_left, cv_in_left_inv;
+
 class DepthRegion {
  public:
   explicit DepthRegion(std::uint32_t n)
@@ -71,27 +71,17 @@ class DepthRegion {
   void ShowElems(const cv::Mat& depth,
       std::function<std::string(const T& elem)> elem2string,
       int elem_space = 40,
-      std::function<std::string(
-          const cv::Mat &depth, const cv::Point &point, const std::uint32_t &n,
-          double X, double Y, double Z)>getinfo = nullptr) {
+      std::function<std::string(const cv::Mat& depth, const cv::Point& point,
+          const std::uint32_t& n)> getinfo = nullptr) {
     if (!show_) return;
 
     int space = std::move(elem_space);
     int n = 2 * n_ + 1;
-    cv::Mat im(space*n, space*n, CV_8UC3, cv::Scalar(255, 255, 255));
+    cv::Mat im(space*n, space*n, CV_8UC3, cv::Scalar(255,255,255));
 
     int x, y;
     std::string str;
     int baseline = 0;
-
-    // calculate (X, Y, Z) in left camera coordinate
-    cv::Mat mouse_left_cor(3, 1, CV_64FC1), mouse_img_cor(3, 1, CV_64FC1);
-    mouse_img_cor.at<double>(0, 0) = static_cast<double>(point_.x);
-    mouse_img_cor.at<double>(0, 1) = static_cast<double>(point_.y);
-    mouse_img_cor.at<double>(0, 2) = 1.0;
-    double Z = depth.at<T>(point_.y, point_.x);
-    mouse_left_cor = cv_in_left_inv *Z * mouse_img_cor;
-
     for (int i = -n_; i <= n; ++i) {
       x = point_.x + i;
       if (x < 0 || x >= depth.cols) continue;
@@ -101,8 +91,8 @@ class DepthRegion {
 
         str = elem2string(depth.at<T>(y, x));
 
-        cv::Scalar color(0, 0, 0);
-        if (i == 0 && j == 0) color = cv::Scalar(0, 0, 255);
+        cv::Scalar color(0,0,0);
+        if (i == 0 && j == 0) color = cv::Scalar(0,0,255);
 
         cv::Size sz = cv::getTextSize(str,
           cv::FONT_HERSHEY_PLAIN, 1, 1, &baseline);
@@ -115,18 +105,14 @@ class DepthRegion {
     }
 
     if (getinfo) {
-      double x, y, z;
-      x = mouse_left_cor.at<double>(0, 0);
-      y = mouse_left_cor.at<double>(1, 0);
-      z = mouse_left_cor.at<double>(2, 0);
-      std::string info = getinfo(depth, point_, n_,  x, y, z);
+      std::string info = getinfo(depth, point_, n_);
       if (!info.empty()) {
         cv::Size sz = cv::getTextSize(info,
           cv::FONT_HERSHEY_PLAIN, 1, 1, &baseline);
 
         cv::putText(im, info,
           cv::Point(5, 5 + sz.height),
-          cv::FONT_HERSHEY_PLAIN, 1, cv::Scalar(255, 0, 255), 1);
+          cv::FONT_HERSHEY_PLAIN, 1, cv::Scalar(255,0,255), 1);
       }
     }
 
@@ -184,6 +170,10 @@ int main(int argc, char const* argv[]) {
     // Color mode: raw(default), rectified
     // params.color_mode = ColorMode::COLOR_RECTIFIED;
 
+    // Depth mode: colorful(default), gray, raw
+    // Note: must set DEPTH_RAW to get raw depth values
+    params.depth_mode = DepthMode::DEPTH_RAW;
+
     // Stream mode: left color only
     // params.stream_mode = StreamMode::STREAM_640x480;  // vga
     params.stream_mode = StreamMode::STREAM_1280x720;  // hd
@@ -202,29 +192,23 @@ int main(int argc, char const* argv[]) {
   }
 
   cam.Open(params);
-  auto stream_intrinsics = cam.GetStreamIntrinsics(params.stream_mode);
-  cv_in_left = cv::Mat::eye(3, 3, CV_64F);
-  cv_in_left.at<double>(0, 0) = stream_intrinsics.left.fx;
-  cv_in_left.at<double>(1, 1) = stream_intrinsics.left.fy;
-  cv_in_left.at<double>(0, 2) = stream_intrinsics.left.cx;
-  cv_in_left.at<double>(1, 2) = stream_intrinsics.left.cy;
+
   cout << endl;
   if (!cam.IsOpened()) {
     cerr << "Error: Open camera failed" << endl;
     return 1;
   }
-  cout << "Open device success" << endl << endl;
+  // cout << "Open device success" << endl << endl;
 
-  cout << "Press ESC/Q on Windows to terminate" << endl;
-  cv_in_left_inv = cv_in_left.inv();
+  // cout << "Press ESC/Q on Windows to terminate" << endl;
+
   cv::namedWindow("color");
   cv::namedWindow("depth");
   cv::namedWindow("region");
 
   DepthRegion depth_region(3);
   auto depth_info = [](
-      const cv::Mat &depth, const cv::Point &point, const std::uint32_t &n,
-          double X, double Y, double Z) {
+      const cv::Mat& depth, const cv::Point& point, const std::uint32_t& n) {
     /*
     int row_beg = point.y - n, row_end = point.y + n + 1;
     int col_beg = point.x - n, col_end = point.x + n + 1;
@@ -237,22 +221,19 @@ int main(int argc, char const* argv[]) {
       << endl << endl;
     */
     std::ostringstream os;
-    os << "depth pos(" << n << "): [" << point.y << ", " << point.x << "]"
-       << " camera pos: [" << X << ", " << Y
-       << ", " << Z << "]" << ", unit: mm";
+    os << "depth pos: [" << point.y << ", " << point.x << "]"
+      << "±" << n << ", unit: mm";
     return os.str();
   };
 
   CVPainter painter;
-  util::Counter counter(params.framerate);
-  auto colorize = cam.GetColorizer();
+  util::Counter counter;
   for (;;) {
     cam.WaitForStream();
-    auto allow_count = false;
+    counter.Update();
 
     auto image_color = cam.GetStreamData(ImageType::IMAGE_LEFT_COLOR);
     if (image_color.img) {
-      allow_count = true;
       cv::Mat color = image_color.img->To(ImageFormat::COLOR_BGR)->ToMat();
       painter.DrawSize(color, CVPainter::TOP_LEFT);
       painter.DrawStreamData(color, image_color, CVPainter::TOP_RIGHT);
@@ -266,25 +247,16 @@ int main(int argc, char const* argv[]) {
 
     auto image_depth = cam.GetStreamData(ImageType::IMAGE_DEPTH);
     if (image_depth.img) {
-      allow_count = true;
-      auto &&depth_raw = image_depth.img->To(ImageFormat::DEPTH_RAW);
-      auto &&depth_color =
-          colorize->Process(depth_raw, ImageFormat::DEPTH_BGR)->ToMat();
+      cv::Mat depth = image_depth.img->To(ImageFormat::DEPTH_RAW)->ToMat();
 
       cv::setMouseCallback("depth", OnDepthMouseCallback, &depth_region);
-      depth_region.DrawRect(depth_color);
-      cv::imshow("depth", depth_color);
+      // Note: DrawRect will change some depth values to show the rect.
+      depth_region.DrawRect(depth);
+      cv::imshow("depth", depth);
 
-      // pass depth_raw to get real depth value
-      depth_region.ShowElems<ushort>(
-          depth_raw->ToMat(),
-          [](const ushort& elem) {
-            return std::to_string(elem);
-          }, 80, depth_info);
-    }
-
-    if (allow_count == true) {
-      counter.Update();
+      depth_region.ShowElems<ushort>(depth, [](const ushort& elem) {
+        return std::to_string(elem);
+      }, 80, depth_info);
     }
 
     char key = static_cast<char>(cv::waitKey(1));
@@ -294,6 +266,6 @@ int main(int argc, char const* argv[]) {
   }
 
   cam.Close();
-
+  cv::destroyAllWindows();
   return 0;
 }

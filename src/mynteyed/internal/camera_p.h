@@ -199,9 +199,6 @@ class MYNTEYE_API CameraPrivate {
   /** Auto-white-balance enabled or not */
   bool AutoWhiteBalanceControl(bool enable);
 
-  /** Get sensor temperature */
-  float GetSensorTemperature();
-
   /**↩
    * Enable location datas.
    *
@@ -248,16 +245,10 @@ class MYNTEYE_API CameraPrivate {
   /** Get serial number */
   std::string GetSerialNumber() const;
 
-  void WaitForStreams();
-  
-  /** Get colorizer for depth */
-  std::shared_ptr<Colorizer> GetColorizer() const;
+  void WaitForStream();
 
   /** Update auxiliary chip firmware. */
   bool AuxiliaryChipFirmwareUpdate(const char* filepath);
-
-  bool WriteCameraCalibration(
-      const struct CameraCalibration &data, const StreamMode& stream_mode);
 
   void ControlReconnectStatus(const bool &status);
 

@@ -60,7 +60,7 @@ int main(int argc, char const* argv[]) {
   std::cout << "Press ESC/Q on Windows to terminate" << std::endl;
 
   Rate rate(params.framerate);
-  util::Counter counter(params.framerate);
+  util::Counter counter;
   for (;;) {
     counter.Update();
 

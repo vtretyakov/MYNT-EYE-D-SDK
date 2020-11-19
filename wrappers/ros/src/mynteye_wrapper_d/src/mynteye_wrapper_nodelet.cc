@@ -83,7 +83,6 @@ class MYNTEYEWrapperNodelet : public nodelet::Nodelet {
   int skip_tag;
   int skip_tmp_left_tag;
   int skip_tmp_right_tag;
-  Version spec_version;
 
   pthread_mutex_t mutex_sub_result;
   pthread_mutex_t mutex_color;
@@ -272,10 +271,9 @@ class MYNTEYEWrapperNodelet : public nodelet::Nodelet {
     nh_ns.getParamCached("imu_processed_topic", imu_processed_topic);
 
     // MYNTEYE objects
-    std::vector<DeviceInfo> dev_infos;
     mynteye.reset(new Camera);
     {
-      dev_infos = mynteye->GetDeviceInfos();
+      std::vector<DeviceInfo> dev_infos = mynteye->GetDeviceInfos();
       size_t n = dev_infos.size();
       if (n <= 0 || dev_index < 0 || dev_index >= n) {
         NODELET_ERROR_STREAM("Device not found, index: " << dev_index);
@@ -292,7 +290,6 @@ class MYNTEYEWrapperNodelet : public nodelet::Nodelet {
 
       params.dev_index = dev_index;
     }
-    spec_version = mynteye->GetDescriptors()->spec_version;
     {
       std::vector<StreamInfo> color_infos;
       std::vector<StreamInfo> depth_infos;
@@ -331,6 +328,7 @@ class MYNTEYEWrapperNodelet : public nodelet::Nodelet {
     params.framerate = framerate;
     params.dev_mode = static_cast<DeviceMode>(dev_mode);
     params.color_mode = static_cast<ColorMode>(color_mode);
+    params.depth_mode = static_cast<DepthMode>(depth_mode);
     params.stream_mode = static_cast<StreamMode>(stream_mode);
     params.color_stream_format =
         static_cast<StreamFormat>(color_stream_format);
@@ -515,14 +513,6 @@ class MYNTEYEWrapperNodelet : public nodelet::Nodelet {
           } else {
             publishImu(sub_result_imu, sub_result_imu_processed, sub_result_temp);
           }
-        } else if (data.imu->flag == MYNTEYE_IMU_ACCEL_GYRO_CALIB) {
-          imu_accel = data.imu;
-          imu_gyro = data.imu;
-          if (imu_timestamp_align) {
-            publishAlignImu(sub_result_imu, sub_result_imu_processed, sub_result_temp);
-          } else {
-            publishImu(sub_result_imu, sub_result_imu_processed, sub_result_temp);
-          }
         }
       }
     });
@@ -655,24 +645,35 @@ class MYNTEYEWrapperNodelet : public nodelet::Nodelet {
     auto&& info = depth_info_ptr;
     if (info) info->header.stamp = header.stamp;
     if (info) info->header.frame_id = depth_frame_id;
-    auto&& mat = data.img->To(ImageFormat::DEPTH_RAW)->ToMat();
-    if (depth_type == 0) {
+    if (params.depth_mode == DepthMode::DEPTH_RAW) {
+      auto&& mat = data.img->To(ImageFormat::DEPTH_RAW)->ToMat();
+      if (depth_type == 0) {
+        pub_depth.publish(
+            cv_bridge::CvImage(header, enc::MONO16, mat).toImageMsg(), info);
+      } else if (depth_type == 1) {
+        pub_depth.publish(
+            cv_bridge::CvImage(header, enc::TYPE_16UC1, mat).toImageMsg(), info);
+      }
+      pthread_mutex_lock(&mutex_sub_result);
+      bool sub_result_points = sub_result.points;
+      pthread_mutex_unlock(&mutex_sub_result);
+      if (sub_result_points) {
+        pthread_mutex_lock(&mutex_color);
+        points_depth = mat;
+        // publishPoints(header.stamp);
+        pthread_mutex_unlock(&mutex_color);
+      }
+    } else if (params.depth_mode == DepthMode::DEPTH_GRAY) {
+      auto&& mat = data.img->To(ImageFormat::DEPTH_GRAY_24)->ToMat();
       pub_depth.publish(
-          cv_bridge::CvImage(header, enc::MONO16, mat).toImageMsg(), info);
-    } else if (depth_type == 1) {
+          cv_bridge::CvImage(header, enc::BGR8, mat).toImageMsg(), info);
+    } else if (params.depth_mode == DepthMode::DEPTH_COLORFUL) {
+      auto&& mat = data.img->To(ImageFormat::DEPTH_BGR)->ToMat();
       pub_depth.publish(
-          cv_bridge::CvImage(header, enc::TYPE_16UC1, mat).toImageMsg(), info);
+          cv_bridge::CvImage(header, enc::BGR8, mat).toImageMsg(), info);
+    } else {
+      NODELET_ERROR_STREAM("Depth mode unsupported");
     }
-    pthread_mutex_lock(&mutex_sub_result);
-    bool sub_result_points = sub_result.points;
-    pthread_mutex_unlock(&mutex_sub_result);
-    if (sub_result_points) {
-      pthread_mutex_lock(&mutex_color);
-      points_depth = mat;
-      // publishPoints(header.stamp);
-      pthread_mutex_unlock(&mutex_color);
-    }
-
   }
 
   void publishPoints(ros::Time stamp) {
@@ -749,9 +750,7 @@ class MYNTEYEWrapperNodelet : public nodelet::Nodelet {
 
   void publishAlignImu(bool imu_sub,
       bool imu_processed_sub, bool temp_sub) {
-    if (spec_version <= Version(1, 0)) {
-      timestampAlign();
-    }
+    timestampAlign();
 
     if (imu_accel == nullptr || imu_gyro == nullptr) {
       return;
@@ -1014,13 +1013,6 @@ class MYNTEYEWrapperNodelet : public nodelet::Nodelet {
       for (int i = 0; i < 3; i++) {
         res.gyro[i] = d[i][0];
       }
-    } else if (res.flag == 11) {
-      res.accel[0] = data.accel[0];
-      res.accel[1] = data.accel[1];
-      res.accel[2] = data.accel[2];
-      res.gyro[0] = data.gyro[0];
-      res.gyro[1] = data.gyro[1];
-      res.gyro[2] = data.gyro[2];
     }
     return res;
   }
@@ -1048,19 +1040,6 @@ class MYNTEYEWrapperNodelet : public nodelet::Nodelet {
           + motion_intrinsics->gyro.y[0];
       res.gyro[2] -= motion_intrinsics->gyro.z[1] * temp
           + motion_intrinsics->gyro.z[0];
-    } else if (res.flag == 11) {
-      res.accel[0] -= motion_intrinsics->accel.x[1] * temp
-          + motion_intrinsics->accel.x[0];
-      res.accel[1] -= motion_intrinsics->accel.y[1] * temp
-          + motion_intrinsics->accel.y[0];
-      res.accel[2] -= motion_intrinsics->accel.z[1] * temp
-          + motion_intrinsics->accel.z[0];
-      res.gyro[0] -= motion_intrinsics->gyro.x[1] * temp
-          + motion_intrinsics->gyro.x[0];
-      res.gyro[1] -= motion_intrinsics->gyro.y[1] * temp
-          + motion_intrinsics->gyro.y[0];
-      res.gyro[2] -= motion_intrinsics->gyro.z[1] * temp
-          + motion_intrinsics->gyro.z[0];
     }
     return res;
   }
@@ -1069,16 +1048,11 @@ class MYNTEYEWrapperNodelet : public nodelet::Nodelet {
     mesh_msg_.header.frame_id = temp_frame_id;
     mesh_msg_.header.stamp = ros::Time::now();
     mesh_msg_.type = visualization_msgs::Marker::MESH_RESOURCE;
-
-    geometry_msgs::Quaternion q;
-    double Pie = 3.1416;
-    q = tf::createQuaternionMsgFromRollPitchYaw(Pie/2, 0.0, Pie);
-
     // fill orientation
-    mesh_msg_.pose.orientation.x = q.x;
-    mesh_msg_.pose.orientation.y = q.y;
-    mesh_msg_.pose.orientation.z = q.z;
-    mesh_msg_.pose.orientation.w = q.w;
+    mesh_msg_.pose.orientation.x = -1;
+    mesh_msg_.pose.orientation.y = 0;
+    mesh_msg_.pose.orientation.z = 0;
+    mesh_msg_.pose.orientation.w = 1;
 
     // fill position
     mesh_msg_.pose.position.x = 0;
@@ -1091,7 +1065,7 @@ class MYNTEYEWrapperNodelet : public nodelet::Nodelet {
     mesh_msg_.scale.z = 0.003;
 
     mesh_msg_.action = visualization_msgs::Marker::ADD;
-    mesh_msg_.color.a = 0.5;  // Don't forget to set the alpha!
+    mesh_msg_.color.a = 1.0;  // Don't forget to set the alpha!
     mesh_msg_.color.r = 1.0;
     mesh_msg_.color.g = 1.0;
     mesh_msg_.color.b = 1.0;

@@ -21,6 +21,7 @@ MYNTEYE_BEGIN_NAMESPACE
 std::ostream& operator<<(std::ostream& os, const DeviceInfo& info) {
   std::ios fmt{nullptr};
   fmt.copyfmt(os);  // clear format
+  /*
   os << "index: " << info.index
     << ", name: " << info.name
     << ", type: " << info.type
@@ -29,6 +30,7 @@ std::ostream& operator<<(std::ostream& os, const DeviceInfo& info) {
     << ", chip_id: 0x" << std::hex << info.chip_id
     << ", fw_version: " << info.fw_version
     << ", serial_number: " << info.sn;
+  */
   os.copyfmt(fmt);  // restore format
   return os;
 }

@@ -51,6 +51,8 @@ int main(int argc, char const* argv[]) {
 
   OpenParams params(dev_info.index);
   params.color_mode = ColorMode::COLOR_RECTIFIED;
+  // Note: must set DEPTH_RAW to get raw depth values for points
+  params.depth_mode = DepthMode::DEPTH_RAW;
   params.stream_mode = StreamMode::STREAM_1280x720;
   params.ir_intensity = 4;
 
@@ -63,9 +65,9 @@ int main(int argc, char const* argv[]) {
     std::cerr << "Error: Open camera failed" << std::endl;
     return 1;
   }
-  std::cout << "Open device success" << std::endl << std::endl;
+  // std::cout << "Open device success" << std::endl << std::endl;
 
-  std::cout << "Press ESC/Q on Windows to terminate" << std::endl;
+  // std::cout << "Press ESC/Q on Windows to terminate" << std::endl;
 
   cv::namedWindow("color");
 
@@ -73,29 +75,23 @@ int main(int argc, char const* argv[]) {
 
   CVPainter painter;
   PCViewer viewer(stream_intrinsics.left, CAMERA_FACTOR);
-  util::Counter counter(params.framerate);
+  util::Counter counter;
   cv::Mat color;
   cv::Mat depth;
   for (;;) {
     cam.WaitForStream();
-    auto allow_count = false;
+    counter.Update();
 
     auto image_color = cam.GetStreamData(ImageType::IMAGE_LEFT_COLOR);
     auto image_depth = cam.GetStreamData(ImageType::IMAGE_DEPTH);
     if (image_color.img && color.empty()) {
-      allow_count = true;
       color = image_color.img->To(ImageFormat::COLOR_BGR)->ToMat();
     }
     if (image_depth.img && depth.empty()) {
-      allow_count = true;
       depth = image_depth.img->To(ImageFormat::DEPTH_RAW)->ToMat();
     }
 
     if (color.empty() || depth.empty()) { continue; }
-
-    if (allow_count == true) {
-      counter.Update();
-    }
 
     viewer.Update(color, depth);
 
@@ -119,6 +115,6 @@ int main(int argc, char const* argv[]) {
   }
 
   cam.Close();
-
+  cv::destroyAllWindows();
   return 0;
 }

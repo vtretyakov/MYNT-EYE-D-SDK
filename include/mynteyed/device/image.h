@@ -29,7 +29,6 @@
 #include "mynteyed/stubs/global.h"
 
 MYNTEYE_BEGIN_NAMESPACE
-
 struct ImageProfile {
   size_t width;
   size_t height;
@@ -149,9 +148,9 @@ class MYNTEYE_API Image {
     return res;
   }
 
-#ifdef WITH_OPENCV
+//#ifdef WITH_OPENCV
   cv::Mat ToMat();
-#endif
+//#endif
 
   pointer Clone() const;
   pointer Shadow(const ImageType& type) const;

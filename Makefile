@@ -17,7 +17,6 @@ MKFILE_DIR := $(patsubst %/,%,$(dir $(MKFILE_PATH)))
 include CommonDefs.mk
 
 SUDO ?= sudo
-CMAKE_BUILD_EXTRA_OPTIONS ?=
 
 .DEFAULT_GOAL := all
 
@@ -29,6 +28,7 @@ help:
 	@echo "  make build     build project"
 	@echo "  make install   build and install"
 	@echo "  make samples   build samples"
+	@echo "  make tools     build tools"
 	@echo "  make ros       build ros wrapper"
 	@echo "  make apidoc    build api doc"
 	@echo "  make pkg       package sdk"
@@ -37,7 +37,7 @@ help:
 
 # all
 
-all: init samples ros
+all: init samples tools ros
 
 .PHONY: all
 
@@ -59,9 +59,9 @@ init:
 build:
 	@$(call echo,Make $@)
 ifeq ($(HOST_OS),Win)
-	@$(call cmake_build,./_build,..,-DCMAKE_INSTALL_PREFIX=$(MKFILE_DIR)/_install $(CMAKE_BUILD_EXTRA_OPTIONS))
+	@$(call cmake_build,./_build,..,-DCMAKE_INSTALL_PREFIX=$(MKFILE_DIR)/_install)
 else
-	@$(call cmake_build,./_build,..,$(CMAKE_BUILD_EXTRA_OPTIONS))
+	@$(call cmake_build,./_build,..)
 endif
 
 .PHONY: build
@@ -105,6 +105,14 @@ samples: install
 	@$(call cmake_build,./samples/_build)
 
 .PHONY: samples
+
+# tools
+
+tools: install
+	@$(call echo,Make $@)
+	@$(call cmake_build,./tools/_build)
+
+.PHONY: tools
 
 # ros
 
@@ -177,6 +185,7 @@ else ifeq ($(HOST_OS),Linux)
 	@$(shell sh ./pkginfo.sh); dst=$(PKGNAME)-opencv-$$OpenCV_VERSION; \
 	$(call echo,Copy ./_install to $$dst ...,1;35); \
 	$(call rm,$$dst); $(ECHO) "CP: ./_install > $$dst"; cp -Rp "./_install/." "$$dst"; \
+	rm -f $$dst/tools/*.bat; \
 	$(call echo,Compress $$dst.tar.gz ...,1;35); \
 	tar -zcf $$dst.tar.gz $$dst; \
 	$(call echo,Compress $$dst.tar.gz done,1;35)
@@ -199,6 +208,8 @@ clean:
 	@$(call rm,./_install/)
 	@$(call rm,./samples/_build/)
 	@$(call rm,./samples/_output/)
+	@$(call rm,./tools/_build/)
+	@$(call rm,./tools/_output/)
 	@$(call rm,./pkginfo.sh)
 	@$(FIND) . -type f -name ".DS_Store" -print0 | xargs -0 rm -f
 
@@ -222,4 +233,3 @@ host:
 	@echo LDD: $(LDD)
 	@echo FIND: $(FIND)
 	@echo PKGNAME: $(PKGNAME)
-	@echo CMAKE_BUILD_EXTRA_OPTIONS: $(CMAKE_BUILD_EXTRA_OPTIONS)

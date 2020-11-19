@@ -25,20 +25,24 @@
 MYNTEYE_USE_NAMESPACE
 
 int main(int argc, char const* argv[]) {
+  std::cout << "DEBUG: IN" << std::endl << std::endl;
   Camera cam;
+  std::cout << "DEBUG: IN1111" << std::endl << std::endl;
   DeviceInfo dev_info;
+  std::cout << "DEBUG: IN22222" << std::endl << std::endl;
   if (!util::select(cam, &dev_info)) {
     return 1;
   }
+  std::cout << "DEBUG: IN3333333" << std::endl << std::endl;
   util::print_stream_infos(cam, dev_info.index);
 
   std::cout << "Open device: " << dev_info.index << ", "
       << dev_info.name << std::endl << std::endl;
-
+  std::cout << "DEBUG: GET INFO" << std::endl << std::endl;
   OpenParams params(dev_info.index);
   {
     // Framerate: 10(default usb3.0) 5(default usb2.0), [0,60], [30](STREAM_2560x720)
-    params.framerate = 10;
+    params.framerate = 1;
 
     // Device mode, default DEVICE_ALL
     //   DEVICE_COLOR: IMAGE_LEFT_COLOR ✓ IMAGE_RIGHT_COLOR ? IMAGE_DEPTH x
@@ -49,6 +53,9 @@ int main(int argc, char const* argv[]) {
 
     // Color mode: raw(default), rectified
     // params.color_mode = ColorMode::COLOR_RECTIFIED;
+
+    // Depth mode: colorful(default), gray, raw
+    // params.depth_mode = DepthMode::DEPTH_GRAY;
 
     // Stream mode: left color only
     // params.stream_mode = StreamMode::STREAM_640x480;  // vga
@@ -74,10 +81,10 @@ int main(int argc, char const* argv[]) {
     // params.ir_depth_only = true;
 
     // Infrared intensity: 0(default), [0,10]
-    params.ir_intensity = 4;
+    //params.ir_intensity = 4;
 
     // Colour depth image, default 5000. [0, 16384]
-    params.colour_depth_value = 5000;
+    //params.colour_depth_value = 5000;
   }
 
   // Enable what process logics
@@ -87,7 +94,7 @@ int main(int argc, char const* argv[]) {
   cam.EnableImageInfo(true);
 
   cam.Open(params);
-
+  std::cout << "DEBUG: OPEN" << std::endl << std::endl;
   std::cout << std::endl;
   if (!cam.IsOpened()) {
     std::cerr << "Error: Open camera failed" << std::endl;
@@ -98,21 +105,20 @@ int main(int argc, char const* argv[]) {
   std::cout << "Press ESC/Q on Windows to terminate" << std::endl;
 
   bool is_left_ok = cam.IsStreamDataEnabled(ImageType::IMAGE_LEFT_COLOR);
-  bool is_depth_ok = cam.IsStreamDataEnabled(ImageType::IMAGE_DEPTH);
+  bool is_depth_ok = false;//cam.IsStreamDataEnabled(ImageType::IMAGE_DEPTH);
 
   if (is_left_ok) cv::namedWindow("left color");
   if (is_depth_ok) cv::namedWindow("depth");
 
   CVPainter painter;
-  util::Counter counter(params.framerate);
+  util::Counter counter;
   for (;;) {
     cam.WaitForStream();
-    auto allow_count = false;
+    counter.Update();
 
     if (is_left_ok) {
       auto left_color = cam.GetStreamData(ImageType::IMAGE_LEFT_COLOR);
       if (left_color.img) {
-        allow_count = true;
         cv::Mat left = left_color.img->To(ImageFormat::COLOR_BGR)->ToMat();
         painter.DrawSize(left, CVPainter::TOP_LEFT);
         painter.DrawStreamData(left, left_color, CVPainter::TOP_RIGHT);
@@ -125,17 +131,16 @@ int main(int argc, char const* argv[]) {
     if (is_depth_ok) {
       auto image_depth = cam.GetStreamData(ImageType::IMAGE_DEPTH);
       if (image_depth.img) {
-        allow_count = true;
         cv::Mat depth;
-        depth = image_depth.img->ToMat();
+        if (params.depth_mode == DepthMode::DEPTH_COLORFUL) {
+          depth = image_depth.img->To(ImageFormat::DEPTH_BGR)->ToMat();
+        } else {
+          depth = image_depth.img->ToMat();
+        }
         painter.DrawSize(depth, CVPainter::TOP_LEFT);
         painter.DrawStreamData(depth, image_depth, CVPainter::TOP_RIGHT);
         cv::imshow("depth", depth);
       }
-    }
-
-    if (allow_count == true) {
-      counter.Update();
     }
 
     char key = static_cast<char>(cv::waitKey(1));
@@ -145,6 +150,6 @@ int main(int argc, char const* argv[]) {
   }
 
   cam.Close();
-
+  cv::destroyAllWindows();
   return 0;
 }

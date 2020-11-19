@@ -1,17 +1,5 @@
-// Copyright 2018 Slightech Co., Ltd. All rights reserved.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
 #include <iostream>
+
 #include <opencv2/highgui/highgui.hpp>
 
 #include "mynteyed/camera.h"
@@ -49,6 +37,9 @@ int main(int argc, char const* argv[]) {
 
   // Color mode: raw(default), rectified
   // params.color_mode = ColorMode::COLOR_RECTIFIED;
+
+  // Depth mode: colorful(default), gray, raw
+  // params.depth_mode = DepthMode::DEPTH_GRAY;
 
   // Stream mode: left color only
   // params.stream_mode = StreamMode::STREAM_640x480;  // vga
@@ -94,9 +85,9 @@ int main(int argc, char const* argv[]) {
     std::cerr << "Error: Open camera failed" << std::endl;
     return 1;
   }
-  std::cout << "Open device success" << std::endl << std::endl;
+  // std::cout << "Open device success" << std::endl << std::endl;
 
-  std::cout << "Press ESC/Q on Windows to terminate" << std::endl;
+  // std::cout << "Press ESC/Q on Windows to terminate" << std::endl;
 
   bool is_left_ok = cam.IsStreamDataEnabled(ImageType::IMAGE_LEFT_COLOR);
   bool is_depth_ok = cam.IsStreamDataEnabled(ImageType::IMAGE_DEPTH);
@@ -105,15 +96,14 @@ int main(int argc, char const* argv[]) {
   if (is_depth_ok) cv::namedWindow("depth");
 
   CVPainter painter;
-  util::Counter counter(params.framerate);
+  util::Counter counter;
   for (;;) {
     cam.WaitForStream();
-    auto allow_count = false;
+    counter.Update();
 
     if (is_left_ok) {
       auto left_color = cam.GetStreamData(ImageType::IMAGE_LEFT_COLOR);
       if (left_color.img) {
-        allow_count = true;
         cv::Mat left = left_color.img->To(ImageFormat::COLOR_BGR)->ToMat();
         painter.DrawSize(left, CVPainter::TOP_LEFT);
         painter.DrawStreamData(left, left_color, CVPainter::TOP_RIGHT);
@@ -126,18 +116,18 @@ int main(int argc, char const* argv[]) {
     if (is_depth_ok) {
       auto image_depth = cam.GetStreamData(ImageType::IMAGE_DEPTH);
       if (image_depth.img) {
-        allow_count = true;
         cv::Mat depth;
-        depth = image_depth.img->ToMat();
+        if (params.depth_mode == DepthMode::DEPTH_COLORFUL) {
+          depth = image_depth.img->To(ImageFormat::DEPTH_BGR)->ToMat();
+        } else {
+          depth = image_depth.img->ToMat();
+        }
         painter.DrawSize(depth, CVPainter::TOP_LEFT);
         painter.DrawStreamData(depth, image_depth, CVPainter::TOP_RIGHT);
         cv::imshow("depth", depth);
       }
     }
 
-    if (allow_count == true) {
-      counter.Update();
-    }
     char key = static_cast<char>(cv::waitKey(1));
     if (key == 27 || key == 'q' || key == 'Q') {  // ESC/Q
       break;
@@ -145,6 +135,6 @@ int main(int argc, char const* argv[]) {
   }
 
   cam.Close();
-
+  cv::destroyAllWindows();
   return 0;
 }
