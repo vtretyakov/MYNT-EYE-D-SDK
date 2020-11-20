@@ -45,11 +45,11 @@
 
   <arg name="color_mode" default="$(arg color_raw)" />
   <!-- Note: must set DEPTH_RAW to get raw depth values for points -->
-  <arg name="depth_mode" default="$(arg depth_raw)" />
+  <arg name="depth_mode" default="$(arg depth_colorful)" />
   <arg name="stream_mode" default="$(arg stream_2560x720)" />
   <arg name="color_stream_format" default="$(arg stream_yuyv)" />
   <arg name="depth_stream_format" default="$(arg stream_yuyv)" />
-  <arg name="depth_type" default="$(arg type_mono16)" />
+  <arg name="depth_type" default="$(arg type_16uc1)" />
 
   <!-- Auto-exposure -->
   <arg name="state_ae" default="true" />
@@ -150,7 +150,7 @@
 
     <param name="gravity" value="$(arg gravity)" />
 
-    <param name="depth_type" value="$(arg type_mono16)" />
+    <param name="depth_type" value="$(arg type_16uc1)" />
 
     <!-- Frame ids -->
     <param name="base_frame"   value="$(arg base_frame)" />
